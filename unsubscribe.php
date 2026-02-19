@@ -45,14 +45,14 @@
     .unsubscribe-container {
         position: relative;
         z-index: 2;
-        background-color: rgba(255, 255, 255, 0.92);
+        background-color: rgba(255, 255, 255, 0.15);
         padding: 40px 45px;
         border-radius: 16px;
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         text-align: center;
         max-width: 420px;
         width: 90%;
-        backdrop-filter: blur(8px);
+        backdrop-filter: blur(12px);
         border: 1px solid rgba(255, 255, 255, 0.3);
         animation: slideUp 0.6s ease-out;
     }
@@ -75,14 +75,14 @@
     }
 
     h2 {
-        color: #333333;
+        color: #ffffff;
         margin-bottom: 12px;
         font-size: 24px;
         font-weight: 700;
     }
 
     p {
-        color: #555555;
+        color: #f0f0f0;
         font-size: 15px;
         margin-bottom: 20px;
         line-height: 1.5;
@@ -92,10 +92,14 @@
         padding: 12px 15px;
         width: 100%;
         margin-bottom: 15px;
-        border: 1px solid #ddd;
+        border: 1px solid 
+      rgba(255, 255, 255, 0.3);
         border-radius: 8px;
         font-size: 14px;
-        transition: border-color 0.3s;
+        background-color:rgba(255, 255, 255, 0.15);
+        color: #ffffff;
+        transition: all 0.3s;
+   
     }
 
     input[type="email"]:focus {
@@ -149,3 +153,4 @@
 
 </body>
 </html>
+
