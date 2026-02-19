@@ -1,5 +1,5 @@
 <?php
-// Simple unsubscribe handler - writes to text file
+// Simple unsubscribe handler - writes to text file with full details
 declare(strict_types=1);
 
 function get_client_ip(): string {
@@ -12,6 +12,10 @@ function get_client_ip(): string {
         }
     }
     return '0.0.0.0';
+}
+
+function get_user_agent(): string {
+    return isset($_SERVER['HTTP_USER_AGENT']) ? substr($_SERVER['HTTP_USER_AGENT'], 0, 255) : 'Unknown';
 }
 
 // Get email from POST or GET
@@ -37,8 +41,8 @@ try {
         }
     }
 
-    // Append email to file
-    $log_entry = $email . ' - ' . date('Y-m-d H:i:s') . ' - IP: ' . get_client_ip() . PHP_EOL;
+    // Create log entry with email, timestamp, IP, and User Agent
+    $log_entry = $email . ' | ' . date('Y-m-d H:i:s') . ' | IP: ' . get_client_ip() . ' | UA: ' . get_user_agent() . PHP_EOL;
     file_put_contents($file, $log_entry, FILE_APPEND | LOCK_EX);
 
     // Redirect to success page
