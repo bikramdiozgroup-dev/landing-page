@@ -129,17 +129,19 @@ function verify_smtp_mailbox(string $email): array {
     // Get MX records
     $mxhosts = [];
     if (!getmxrr($domain, $mxhosts)) {
-        if (!checkdnsrr($domain, 'A')) {
-            return ['valid' => false, 'message' => 'No mail server found for domain.', 'check' => 'Deep SMTP Ping'];
+        if (!checkdnsrr($domain, 'A') && !checkdnsrr($domain, 'AAAA')) {
+            return ['valid' => false, 'message' => 'No mail server found for domain. Cannot verify mailbox.', 'check' => 'Deep SMTP Ping'];
         }
         $mxhosts = [$domain];
     }
     
     // Try to verify mailbox on first 3 MX servers
+    $verification_attempted = false;
     foreach (array_slice($mxhosts, 0, 3) as $mx) {
-        $verified = verify_mailbox_on_server($mx, $email, $local, $domain);
-        if ($verified !== null) {
-            if ($verified) {
+        $result = verify_mailbox_on_server($mx, $email, $local, $domain);
+        if ($result !== null) {
+            $verification_attempted = true;
+            if ($result) {
                 return ['valid' => true, 'message' => 'Mailbox exists on mail server.', 'check' => 'Deep SMTP Ping'];
             } else {
                 return ['valid' => false, 'message' => 'Mailbox does not exist on mail server.', 'check' => 'Deep SMTP Ping'];
@@ -147,8 +149,13 @@ function verify_smtp_mailbox(string $email): array {
         }
     }
     
-    // If we can't verify, allow (better safe than sorry)
-    return ['valid' => true, 'message' => 'Mail server is reachable.', 'check' => 'Deep SMTP Ping'];
+    // If verification was attempted but inconclusive, reject the email
+    if ($verification_attempted) {
+        return ['valid' => false, 'message' => 'Could not verify mailbox existence.', 'check' => 'Deep SMTP Ping'];
+    }
+    
+    // If we couldn't even attempt verification, reject
+    return ['valid' => false, 'message' => 'Unable to connect to mail server for verification.', 'check' => 'Deep SMTP Ping'];
 }
 
 // Helper function to verify mailbox on specific server
