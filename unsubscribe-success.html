@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Unsubscribed • Dioz Group</title>
-
 <style>
 * {
   margin: 0;
@@ -18,30 +17,40 @@ body {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-
-  /* Controls how high the box appears */
   padding-top: 120px;
-
-  /* Lighter overlay so background shows clearly */
-  background:
-    linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)),
-    url('./Contactfotor.jpg') center/cover no-repeat fixed;
-
+  background-color: #1a1a1a;
+  background-image: url('./Contactfotor.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   color: #333;
 }
 
-/* Card */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  z-index: 0;
+}
+
 .card {
-  background: rgba(255, 255, 255, 0.88); /* Light but visible */
+  position: relative;
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.88);
   border-radius: 20px;
   padding: 40px 35px;
   max-width: 460px;
-  width: 100%;
+  width: 90%;
+  margin: 0 auto;
   text-align: center;
-
   box-shadow: 0 25px 70px rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.4);
-
   animation: fadeDown 0.6s ease-out;
 }
 
@@ -57,29 +66,33 @@ body {
 }
 
 .icon {
-  font-size: 42px;  /* smaller */
+  font-size: 42px;
   margin-bottom: 12px;
 }
 
 .card img {
-  max-width: 110px; /* smaller logo */
+  max-width: 110px;
   margin-bottom: 15px;
 }
 
 .card h1 {
   font-size: 24px;
   margin-bottom: 10px;
+  color: #10b981;
+  font-weight: 700;
 }
 
 .card p {
   font-size: 15px;
   margin-bottom: 12px;
+  color: #333;
 }
 
 .subtitle {
   margin-bottom: 20px;
+  color: #666;
+  font-size: 14px;
 }
-
 
 a.button {
   display: inline-block;
@@ -100,7 +113,6 @@ a.button:hover {
 }
 </style>
 </head>
-
 <body>
 
 <div class="card">
@@ -114,5 +126,3 @@ a.button:hover {
 
 </body>
 </html>
-
-
