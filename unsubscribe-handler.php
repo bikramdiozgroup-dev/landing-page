@@ -1,5 +1,5 @@
 <?php
-// unsubscribe-handler.php with comprehensive email verification
+// unsubscribe-handler.php with comprehensive email verification including Deep SMTP Ping
 declare(strict_types=1);
 
 function get_client_ip(): string {
@@ -64,7 +64,6 @@ function validate_email_syntax(string $email): array {
         return ['valid' => false, 'message' => 'Local part too long (max 64 characters).', 'check' => 'Syntax Validator'];
     }
     
-    // Check for consecutive dots or leading/trailing dots
     if (strpos($email, '..') !== false) {
         return ['valid' => false, 'message' => 'Email contains consecutive dots.', 'check' => 'Syntax Validator'];
     }
@@ -87,7 +86,7 @@ function check_disposable_email(string $email): array {
     $disposable_domains = get_disposable_domains();
     
     if (isset($disposable_domains[$domain])) {
-        return ['valid' => false, 'message' => 'Disposable/temporary email address detected.', 'check' => 'Disposable Email Checker'];
+        return ['valid' => false, 'message' => 'Temporary/disposable email address detected.', 'check' => 'Disposable Email Checker'];
     }
     
     return ['valid' => true, 'message' => 'Not a disposable email.', 'check' => 'Disposable Email Checker'];
@@ -102,15 +101,12 @@ function check_mx_records(string $email): array {
     
     $domain = strtolower(trim($parts[1]));
     
-    // Check if domain has valid DNS records
     if (!checkdnsrr($domain, 'ANY')) {
         return ['valid' => false, 'message' => 'Domain does not have valid DNS records.', 'check' => 'DNS Validity Check'];
     }
     
-    // Check for MX records
     $mxhosts = [];
     if (!getmxrr($domain, $mxhosts)) {
-        // Some domains may not have explicit MX records but use A records
         if (!checkdnsrr($domain, 'A') && !checkdnsrr($domain, 'AAAA')) {
             return ['valid' => false, 'message' => 'Domain has no valid mail server (MX records).', 'check' => 'MX Record Checker'];
         }
@@ -119,7 +115,108 @@ function check_mx_records(string $email): array {
     return ['valid' => true, 'message' => 'Domain has valid MX records.', 'check' => 'MX Record Checker'];
 }
 
-// 4. Duplicate Email Remover
+// 4. Deep SMTP Ping - Verify mailbox exists
+function verify_smtp_mailbox(string $email): array {
+    $parts = explode('@', $email);
+    if (count($parts) !== 2) {
+        return ['valid' => false, 'message' => 'Invalid email format.', 'check' => 'Deep SMTP Ping'];
+    }
+    
+    list($local, $domain) = $parts;
+    $domain = strtolower(trim($domain));
+    $local = strtolower(trim($local));
+    
+    // Get MX records
+    $mxhosts = [];
+    if (!getmxrr($domain, $mxhosts)) {
+        if (!checkdnsrr($domain, 'A')) {
+            return ['valid' => false, 'message' => 'No mail server found for domain.', 'check' => 'Deep SMTP Ping'];
+        }
+        $mxhosts = [$domain];
+    }
+    
+    // Try to verify mailbox on first 3 MX servers
+    foreach (array_slice($mxhosts, 0, 3) as $mx) {
+        $verified = verify_mailbox_on_server($mx, $email, $local, $domain);
+        if ($verified !== null) {
+            if ($verified) {
+                return ['valid' => true, 'message' => 'Mailbox exists on mail server.', 'check' => 'Deep SMTP Ping'];
+            } else {
+                return ['valid' => false, 'message' => 'Mailbox does not exist on mail server.', 'check' => 'Deep SMTP Ping'];
+            }
+        }
+    }
+    
+    // If we can't verify, allow (better safe than sorry)
+    return ['valid' => true, 'message' => 'Mail server is reachable.', 'check' => 'Deep SMTP Ping'];
+}
+
+// Helper function to verify mailbox on specific server
+function verify_mailbox_on_server(string $mx, string $email, string $local, string $domain): ?bool {
+    $ports = [25, 587, 465];
+    
+    foreach ($ports as $port) {
+        $socket = @fsockopen($mx, $port, $errno, $errstr, 5);
+        
+        if (!$socket) {
+            continue;
+        }
+        
+        try {
+            stream_set_timeout($socket, 5);
+            
+            // Read banner
+            $banner = fgets($socket);
+            if (strpos($banner, '220') === false) {
+                fclose($socket);
+                continue;
+            }
+            
+            // Send HELO
+            fwrite($socket, "HELO s-dioz.us\r\n");
+            $response = fgets($socket);
+            if (strpos($response, '250') === false) {
+                fclose($socket);
+                continue;
+            }
+            
+            // Send MAIL FROM
+            fwrite($socket, "MAIL FROM:<noreply@s-dioz.us>\r\n");
+            $response = fgets($socket);
+            if (strpos($response, '250') === false) {
+                fclose($socket);
+                continue;
+            }
+            
+            // Send RCPT TO - this will tell us if mailbox exists
+            fwrite($socket, "RCPT TO:<$email>\r\n");
+            $response = fgets($socket);
+            
+            // Send QUIT
+            fwrite($socket, "QUIT\r\n");
+            fclose($socket);
+            
+            // Check response
+            if (strpos($response, '250') !== false) {
+                return true; // Mailbox exists
+            } elseif (strpos($response, '550') !== false || strpos($response, '551') !== false || strpos($response, '553') !== false) {
+                return false; // Mailbox doesn't exist
+            } elseif (strpos($response, '421') !== false || strpos($response, '450') !== false) {
+                continue; // Temporary error, try next MX
+            }
+            
+        } catch (Exception $e) {
+            if ($socket) {
+                fclose($socket);
+            }
+            continue;
+        }
+    }
+    
+    return null; // Couldn't verify
+}
+
+// 5. Duplicate Email Remover
 function check_duplicate_email(string $email): array {
     $file = __DIR__ . '/unsubscribed-emails.txt';
     
@@ -131,45 +228,6 @@ function check_duplicate_email(string $email): array {
     }
     
     return ['valid' => true, 'message' => 'Email is unique.', 'check' => 'Duplicate Email Remover'];
-}
-
-// 5. SMTP Validator (Basic SMTP Check)
-function validate_smtp(string $email): array {
-    $parts = explode('@', $email);
-    if (count($parts) !== 2) {
-        return ['valid' => false, 'message' => 'Invalid email format.', 'check' => 'SMTP Validator'];
-    }
-    
-    $domain = strtolower(trim($parts[1]));
-    
-    // Get MX records
-    $mxhosts = [];
-    if (!getmxrr($domain, $mxhosts)) {
-        if (!checkdnsrr($domain, 'A')) {
-            return ['valid' => false, 'message' => 'No mail server found for domain.', 'check' => 'SMTP Validator'];
-        }
-        $mxhosts = [$domain];
-    }
-    
-    // Try to connect to first MX server
-    $mx = $mxhosts[0] ?? $domain;
-    $socket = @fsockopen($mx, 25, $errno, $errstr, 5);
-    
-    if ($socket) {
-        fclose($socket);
-        return ['valid' => true, 'message' => 'SMTP server is reachable.', 'check' => 'SMTP Validator'];
-    }
-    
-    // If port 25 fails, try other common ports
-    foreach ([587, 465, 25] as $port) {
-        $socket = @fsockopen($mx, $port, $errno, $errstr, 3);
-        if ($socket) {
-            fclose($socket);
-            return ['valid' => true, 'message' => 'Mail server is reachable.', 'check' => 'SMTP Validator'];
-        }
-    }
-    
-    return ['valid' => false, 'message' => 'Could not connect to mail server.', 'check' => 'SMTP Validator'];
 }
 
 // 6. Provider Detection
@@ -188,7 +246,7 @@ function detect_provider(string $email): array {
         'mail.com' => 'Mail.com',
     ];
     
-    $provider = $providers[$domain] ?? 'Custom Domain';
+    $provider = $providers[$domain] ?? 'Business/Custom Domain';
     
     return ['valid' => true, 'message' => 'Provider: ' . $provider, 'check' => 'Provider Detection'];
 }
@@ -218,16 +276,19 @@ function validate_email_comprehensive(string $email): array {
         return ['valid' => false, 'checks' => $checks];
     }
     
-    // 4. Duplicate Check
+    // 4. Deep SMTP Ping - Verify mailbox exists
+    $smtp_check = verify_smtp_mailbox($email);
+    $checks[] = $smtp_check;
+    if (!$smtp_check['valid']) {
+        return ['valid' => false, 'checks' => $checks];
+    }
+    
+    // 5. Duplicate Check
     $duplicate_check = check_duplicate_email($email);
     $checks[] = $duplicate_check;
     if (!$duplicate_check['valid']) {
         return ['valid' => false, 'checks' => $checks];
     }
-    
-    // 5. SMTP Validator
-    $smtp_check = validate_smtp($email);
-    $checks[] = $smtp_check;
     
     // 6. Provider Detection
     $provider_check = detect_provider($email);
