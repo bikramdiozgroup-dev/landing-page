@@ -1,49 +1,26 @@
 <?php
 // view-unsubscribed.php
-// Shows the recent rows from the `unsubscribes` table.
-// IMPORTANT: Protect this page (password / IP restrict) — it exposes user emails.
+// Simple version that reads from unsubscribed-emails.txt file
+// (No database required)
 
-require __DIR__ . '/db-config.php';
-
-$rows = [];
+$file = __DIR__ . '/unsubscribed-emails.txt';
+$emails = [];
 $error = null;
 
-// Prefer PDO ($pdo), otherwise try mysqli using DB_* constants (backwards compatible)
-if (isset($pdo) && $pdo instanceof PDO) {
-    try {
-        $stmt = $pdo->query("SELECT id, email, COALESCE(source_list, '') AS source, ip, user_agent, unsubscribed_at
-                             FROM unsubscribes
-                             ORDER BY unsubscribed_at DESC
-                             LIMIT 500");
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Exception $e) {
-        $error = 'DB error: ' . $e->getMessage();
+if (file_exists($file)) {
+    $content = file_get_contents($file);
+    if ($content) {
+        $lines = array_filter(array_map('trim', explode("\n", $content)));
+        foreach ($lines as $line) {
+            // Parse lines like: "email@example.com - 2025-02-18 10:30:45 - IP: 192.168.1.1"
+            $emails[] = $line;
+        }
     }
 } else {
-    // fallback to mysqli if DB constants exist
-    if (defined('DB_HOST') && defined('DB_USER') && defined('DB_PASS') && defined('DB_NAME')) {
-        $mysqli = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-        if ($mysqli->connect_errno) {
-            $error = "Database connection failed: " . $mysqli->connect_error;
-        } else {
-            $res = $mysqli->query("SELECT id, email, COALESCE(source_list,'') AS source, ip, user_agent, unsubscribed_at
-                                   FROM unsubscribes
-                                   ORDER BY unsubscribed_at DESC
-                                   LIMIT 500");
-            if ($res) {
-                while ($r = $res->fetch_assoc()) {
-                    $rows[] = $r;
-                }
-                $res->free();
-            } else {
-                $error = "Query failed: " . $mysqli->error;
-            }
-            $mysqli->close();
-        }
-    } else {
-        $error = "No valid DB connection found. Ensure db-config.php defines \$pdo or DB_* constants.";
-    }
+    $error = "Unsubscribed emails file not found.";
 }
+
+$total = count($emails);
 ?>
 <!doctype html>
 <html lang="en">
@@ -52,55 +29,170 @@ if (isset($pdo) && $pdo instanceof PDO) {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Unsubscribed Emails | Dioz Group</title>
 <style>
-body{font-family:Arial,Helvetica,sans-serif;background:#f9fafb;margin:0;padding:40px;color:#111;}
-.container{max-width:1100px;margin:0 auto;}
-table{border-collapse:collapse;width:100%;background:white;border-radius:10px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08);}
-th,td{padding:12px 16px;text-align:left;border-bottom:1px solid #eee;vertical-align:top;}
-th{background:#111;color:white;}
-tr:hover{background:#f1f5f9;}
-button{background:#2563eb;color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;}
-button:hover{background:#1e40af;}
-.notice{background:#fff3cd;border:1px solid #ffeeba;padding:12px;margin-bottom:16px;border-radius:6px;}
-.error{background:#fdecea;border:1px solid #f5c6cb;padding:12px;margin-bottom:16px;border-radius:6px;color:#a71d2a;}
-.small{font-size:0.9rem;color:#666;}
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', Helvetica, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 40px 20px;
+    color: #111;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 12px;
+    padding: 40px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+h1 {
+    color: #667eea;
+    margin-bottom: 10px;
+    font-size: 28px;
+}
+
+.subtitle {
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.stats {
+    background: #f0f4ff;
+    border-left: 4px solid #667eea;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.stats strong {
+    color: #667eea;
+    font-size: 18px;
+}
+
+.error {
+    background: #fdecea;
+    border: 1px solid #f5c6cb;
+    padding: 12px;
+    margin-bottom: 16px;
+    border-radius: 6px;
+    color: #a71d2a;
+}
+
+.notice {
+    background: #fff3cd;
+    border: 1px solid #ffeeba;
+    padding: 12px;
+    margin-bottom: 16px;
+    border-radius: 6px;
+    color: #856404;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 20px;
+}
+
+th, td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+th {
+    background: #667eea;
+    color: white;
+    font-weight: 600;
+}
+
+tbody tr:hover {
+    background: #f9f9f9;
+}
+
+.email {
+    color: #667eea;
+    font-weight: 500;
+}
+
+.timestamp {
+    color: #999;
+    font-size: 13px;
+}
+
+.btn {
+    display: inline-block;
+    background: #667eea;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 6px;
+    text-decoration: none;
+    text-align: center;
+    border: none;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: background 0.3s;
+}
+
+.btn:hover {
+    background: #764ba2;
+}
+
+.empty {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+}
 </style>
 </head>
 <body>
+
 <div class="container">
-<h1>📧 Unsubscribed Emails</h1>
-<p class="small">Below is a list of recent unsubscribes (last 500). Protect this page — it contains user emails.</p>
+    <h1>📧 Unsubscribed Emails</h1>
+    <p class="subtitle">Track all emails that have unsubscribed from your mailing list</p>
 
-<?php if ($error): ?>
-  <div class="error"><?= htmlspecialchars($error) ?></div>
-<?php endif; ?>
+    <?php if ($error): ?>
+        <div class="error">⚠️ <?= htmlspecialchars($error) ?></div>
+    <?php endif; ?>
 
-<?php if (count($rows) === 0): ?>
-  <div class="notice">No unsubscribes found.</div>
-<?php else: ?>
-<table>
-<tr>
-<th style="width:40%;">Email</th>
-<th style="width:12%;">Source</th>
-<th style="width:12%;">IP</th>
-<th style="width:26%;">User Agent</th>
-<th style="width:10%;">Date</th>
-</tr>
-<?php foreach ($rows as $row): ?>
-<tr>
-<td><?= htmlspecialchars($row['email']) ?></td>
-<td><?= htmlspecialchars($row['source'] ?? '') ?></td>
-<td><?= htmlspecialchars($row['ip'] ?? '') ?></td>
-<td><?= htmlspecialchars(mb_strimwidth($row['user_agent'] ?? '', 0, 80, '...')) ?></td>
-<td><?= htmlspecialchars($row['unsubscribed_at'] ?? '') ?></td>
-</tr>
-<?php endforeach; ?>
-</table>
+    <div class="stats">
+        <strong><?= $total ?></strong> email(s) have unsubscribed
+    </div>
 
-<form method="post" action="export-unsubscribed.php" style="margin-top:20px;">
-<button type="submit">⬇️ Export as CSV</button>
-</form>
-<?php endif; ?>
+    <?php if ($total === 0): ?>
+        <div class="empty">
+            <p>✅ No unsubscribes yet. Great start!</p>
+        </div>
+    <?php else: ?>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Email & Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach (array_reverse($emails) as $index => $email): ?>
+                <tr>
+                    <td><?= $total - $index ?></td>
+                    <td>
+                        <div class="email"><?= htmlspecialchars($email) ?></div>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php endif; ?>
 
+    <a href="/" class="btn">← Back to Home</a>
 </div>
+
 </body>
 </html>
