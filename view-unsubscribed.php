@@ -1,10 +1,9 @@
 <?php
 // view-unsubscribed.php
-// Simple version that reads from unsubscribed-emails.txt file
-// (No database required)
+// Reads from unsubscribed-emails.txt and displays in table format
 
 $file = __DIR__ . '/unsubscribed-emails.txt';
-$emails = [];
+$rows = [];
 $error = null;
 
 if (file_exists($file)) {
@@ -12,15 +11,34 @@ if (file_exists($file)) {
     if ($content) {
         $lines = array_filter(array_map('trim', explode("\n", $content)));
         foreach ($lines as $line) {
-            // Parse lines like: "email@example.com - 2025-02-18 10:30:45 - IP: 192.168.1.1"
-            $emails[] = $line;
+            // Parse: "email@example.com - 2025-02-18 10:30:45 - IP: 192.168.1.1"
+            if (preg_match('/^(.+?)\s*-\s*(.+?)\s*-\s*IP:\s*(.+)$/', $line, $matches)) {
+                $rows[] = [
+                    'email' => trim($matches[1]),
+                    'timestamp' => trim($matches[2]),
+                    'ip' => trim($matches[3]),
+                    'source' => 'web',
+                    'user_agent' => 'N/A'
+                ];
+            } else {
+                // Fallback: just email if format doesn't match
+                if (filter_var($line, FILTER_VALIDATE_EMAIL)) {
+                    $rows[] = [
+                        'email' => $line,
+                        'timestamp' => date('Y-m-d H:i:s'),
+                        'ip' => 'N/A',
+                        'source' => 'web',
+                        'user_agent' => 'N/A'
+                    ];
+                }
+            }
         }
     }
-} else {
-    $error = "Unsubscribed emails file not found.";
 }
 
-$total = count($emails);
+$total = count($rows);
+// Reverse to show newest first
+$rows = array_reverse($rows);
 ?>
 <!doctype html>
 <html lang="en">
@@ -36,45 +54,39 @@ $total = count($emails);
 }
 
 body {
-    font-family: 'Arial', Helvetica, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-height: 100vh;
-    padding: 40px 20px;
-    color: #111;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f5f5f5;
+    padding: 30px 15px;
+    color: #333;
 }
 
 .container {
-    max-width: 900px;
+    max-width: 1200px;
     margin: 0 auto;
     background: white;
-    border-radius: 12px;
-    padding: 40px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    padding: 30px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 h1 {
-    color: #667eea;
-    margin-bottom: 10px;
     font-size: 28px;
+    margin-bottom: 8px;
+    color: #111;
 }
 
 .subtitle {
     color: #666;
-    font-size: 14px;
     margin-bottom: 20px;
+    font-size: 14px;
 }
 
 .stats {
     background: #f0f4ff;
-    border-left: 4px solid #667eea;
-    padding: 15px;
-    border-radius: 6px;
+    border-left: 4px solid #2563eb;
+    padding: 12px;
     margin-bottom: 20px;
-}
-
-.stats strong {
-    color: #667eea;
-    font-size: 18px;
+    border-radius: 4px;
 }
 
 .error {
@@ -93,24 +105,31 @@ h1 {
     margin-bottom: 16px;
     border-radius: 6px;
     color: #856404;
+    text-align: center;
 }
 
 table {
-    border-collapse: collapse;
     width: 100%;
-    margin-top: 20px;
+    border-collapse: collapse;
+    margin-top: 10px;
 }
 
-th, td {
-    padding: 12px;
-    text-align: left;
-    border-bottom: 1px solid #ddd;
+thead {
+    background: #1a1a1a;
+    color: white;
 }
 
 th {
-    background: #667eea;
-    color: white;
+    padding: 12px;
+    text-align: left;
     font-weight: 600;
+    font-size: 13px;
+}
+
+td {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    font-size: 13px;
 }
 
 tbody tr:hover {
@@ -118,18 +137,31 @@ tbody tr:hover {
 }
 
 .email {
-    color: #667eea;
+    color: #2563eb;
     font-weight: 500;
+}
+
+.ip {
+    color: #666;
+    font-family: monospace;
 }
 
 .timestamp {
     color: #999;
-    font-size: 13px;
+    white-space: nowrap;
+}
+
+.user-agent {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #666;
 }
 
 .btn {
     display: inline-block;
-    background: #667eea;
+    background: #2563eb;
     color: white;
     padding: 10px 20px;
     border-radius: 6px;
@@ -138,11 +170,22 @@ tbody tr:hover {
     border: none;
     cursor: pointer;
     margin-top: 20px;
+    margin-right: 10px;
     transition: background 0.3s;
+    font-size: 14px;
+    font-weight: 600;
 }
 
 .btn:hover {
-    background: #764ba2;
+    background: #1e40af;
+}
+
+.btn-secondary {
+    background: #666;
+}
+
+.btn-secondary:hover {
+    background: #444;
 }
 
 .empty {
@@ -156,42 +199,48 @@ tbody tr:hover {
 
 <div class="container">
     <h1>📧 Unsubscribed Emails</h1>
-    <p class="subtitle">Track all emails that have unsubscribed from your mailing list</p>
+    <p class="subtitle">Below is a list of all unsubscribed users.</p>
 
     <?php if ($error): ?>
-        <div class="error">⚠️ <?= htmlspecialchars($error) ?></div>
+        <div class="error"><?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
 
     <div class="stats">
-        <strong><?= $total ?></strong> email(s) have unsubscribed
+        Total Unsubscribed: <strong><?= $total ?></strong>
     </div>
 
     <?php if ($total === 0): ?>
-        <div class="empty">
-            <p>✅ No unsubscribes yet. Great start!</p>
+        <div class="notice">
+            ✅ No unsubscribes yet.
         </div>
     <?php else: ?>
         <table>
             <thead>
                 <tr>
-                    <th>#</th>
-                    <th>Email & Details</th>
+                    <th style="width: 30%;">Email</th>
+                    <th style="width: 15%;">Source</th>
+                    <th style="width: 15%;">IP</th>
+                    <th style="width: 25%;">User Agent</th>
+                    <th style="width: 15%;">Date</th>
                 </tr>
             </thead>
             <tbody>
-                <?php foreach (array_reverse($emails) as $index => $email): ?>
+                <?php foreach ($rows as $row): ?>
                 <tr>
-                    <td><?= $total - $index ?></td>
-                    <td>
-                        <div class="email"><?= htmlspecialchars($email) ?></div>
-                    </td>
+                    <td class="email"><?= htmlspecialchars($row['email']) ?></td>
+                    <td><?= htmlspecialchars($row['source']) ?></td>
+                    <td class="ip"><?= htmlspecialchars($row['ip']) ?></td>
+                    <td class="user-agent"><?= htmlspecialchars($row['user_agent']) ?></td>
+                    <td class="timestamp"><?= htmlspecialchars($row['timestamp']) ?></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
+
+        <a href="/" class="btn">← Back to Home</a>
+        <button class="btn btn-secondary" onclick="window.print()">🖨️ Print</button>
     <?php endif; ?>
 
-    <a href="/" class="btn">← Back to Home</a>
 </div>
 
 </body>
