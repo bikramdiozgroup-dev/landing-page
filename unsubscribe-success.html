@@ -1,9 +1,3 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Unsubscribed • Dioz Group</title>
 <style>
 * {
   margin: 0;
@@ -17,24 +11,35 @@ body {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding-top: 60px;
-  background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('./Contactfotor.jpg');
+
+  /* Higher position */
+  padding-top: 120px;
+
+  /* Lighter overlay so image shows more */
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.25)),
+    url('./Contactfotor.jpg');
+
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
   color: #333;
-  padding: 60px 20px 20px 20px;
 }
 
+/* Glass Card */
 .card {
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(10px);
-  border-radius: 16px;
-  padding: 50px 40px;
-  max-width: 500px;
+  background: rgba(255, 255, 255, 0.55); /* More transparent */
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+
+  border-radius: 20px;
+  padding: 55px 45px;
+  max-width: 520px;
   width: 100%;
-  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+
   text-align: center;
   animation: slideDown 0.6s ease-out;
 }
@@ -42,7 +47,7 @@ body {
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateY(-30px);
+    transform: translateY(-40px);
   }
   to {
     opacity: 1;
@@ -55,19 +60,13 @@ body {
   color: #10b981;
   margin-bottom: 15px;
   font-weight: 700;
-  display: block;
-  visibility: visible;
-  opacity: 1;
 }
 
 .card p {
   font-size: 16px;
-  color: #333;
-  margin-bottom: 30px;
+  color: #222;
+  margin-bottom: 25px;
   line-height: 1.6;
-  display: block;
-  visibility: visible;
-  opacity: 1;
 }
 
 .card img {
@@ -78,42 +77,30 @@ body {
 
 a.button {
   display: inline-block;
-  margin-top: 15px;
+  margin-top: 10px;
   background: #2563eb;
   color: #fff;
-  padding: 12px 30px;
-  border-radius: 8px;
+  padding: 12px 32px;
+  border-radius: 10px;
   text-decoration: none;
   font-weight: 600;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
 }
 
 a.button:hover {
   background: #1d4ed8;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(37, 99, 235, 0.7);
 }
 
 .icon {
-  font-size: 48px;
+  font-size: 50px;
   margin-bottom: 15px;
 }
 
 .subtitle {
   font-size: 14px;
-  color: #666;
+  color: #444;
 }
 </style>
-</head>
-<body>
-  <div class="card">
-    <div class="icon">✅</div>
-    <img src="https://dioz.com/wp-content/uploads/2024/07/logo.svg" alt="Dioz Logo">
-    <h1>You've been unsubscribed</h1>
-    <p>Your email has been successfully removed from our mailing list.</p>
-    <p class="subtitle">We're sorry to see you go!</p>
-    <a class="button" href="/">← Return to Home</a>
-  </div>
-</body>
-</html>
