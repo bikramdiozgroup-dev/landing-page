@@ -1,5 +1,5 @@
 <?php
-// unsubscribe-handler.php with email validation and disposable domain blocking
+// unsubscribe-handler.php with disposable domain blocking from file
 declare(strict_types=1);
 
 function get_client_ip(): string {
@@ -18,22 +18,48 @@ function get_user_agent(): string {
     return isset($_SERVER['HTTP_USER_AGENT']) ? substr($_SERVER['HTTP_USER_AGENT'], 0, 255) : 'Unknown';
 }
 
-// Common disposable email domains (subset - you can expand this list)
-$disposable_domains = [
-    'tempmail.com', 'temp-mail.org', 'throwaway.email', '10minutemail.com',
-    'mailinator.com', 'maildrop.cc', 'trashmail.com', 'spam4.me',
-    'yopmail.com', 'temp.email', 'fakeinbox.com', 'pokemail.net',
-    'tempmail.us', 'sharklasers.com', 'throwawaymail.com', 'mailnesia.com',
-    'maildrop.cc', 'tempmail.de', 'temp-email.org', 'fake-mail.com',
-    'grr.la', 'mailcatch.com', 'minutemail.com', '15minutemail.com',
-    'dispostable.com', 'temp.email', 'tempmail.ninja', 'tempmail.eu',
-    'temp-mail.io', 'tempmail.pro', 'maildump.io', 'temp.email',
-    'protonmailrmez3lotccipshtkleegetolb5c6h2f4c4p7f55z7pd.onion', 'trash-mail.com'
-];
+// Load disposable domains from file (with caching in memory)
+static $disposable_domains_cache = null;
+
+function get_disposable_domains(): array {
+    global $disposable_domains_cache;
+    
+    if ($disposable_domains_cache !== null) {
+        return $disposable_domains_cache;
+    }
+    
+    $file = __DIR__ . '/disposable-email-domains.txt';
+    
+    if (!file_exists($file)) {
+        // Fallback list if file doesn't exist
+        $domains = [
+            'tempmail.com', 'temp-mail.org', 'throwaway.email', '10minutemail.com',
+            'mailinator.com', 'maildrop.cc', 'trashmail.com', 'spam4.me'
+        ];
+        $disposable_domains_cache = array_flip($domains);
+        return $disposable_domains_cache;
+    }
+    
+    $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if (!$lines) {
+        $disposable_domains_cache = [];
+        return $disposable_domains_cache;
+    }
+    
+    // Convert to lowercase and create associative array for fast lookup
+    $domains = [];
+    foreach ($lines as $domain) {
+        $domain = strtolower(trim($domain));
+        if (!empty($domain) && strpos($domain, '#') !== 0) { // Skip empty lines and comments
+            $domains[$domain] = true;
+        }
+    }
+    
+    $disposable_domains_cache = $domains;
+    return $disposable_domains_cache;
+}
 
 function is_disposable_email(string $email): bool {
-    global $disposable_domains;
-    
     // Extract domain from email
     $parts = explode('@', $email);
     if (count($parts) !== 2) {
@@ -41,9 +67,10 @@ function is_disposable_email(string $email): bool {
     }
     
     $domain = strtolower(trim($parts[1]));
+    $disposable_domains = get_disposable_domains();
     
     // Check against disposable domains list
-    return in_array($domain, $disposable_domains, true);
+    return isset($disposable_domains[$domain]);
 }
 
 function is_valid_email(string $email): array {
@@ -60,7 +87,11 @@ function is_valid_email(string $email): array {
     }
     
     // Check for role accounts (admin@, info@, etc.)
-    $role_accounts = ['admin', 'info', 'noreply', 'support', 'test', 'abuse', 'webmaster', 'postmaster'];
+    $role_accounts = [
+        'admin', 'info', 'noreply', 'support', 'test', 'abuse', 'webmaster', 
+        'postmaster', 'contact', 'sales', 'hello', 'hi', 'hey', 'news', 'hello',
+        'feedback', 'inquiry', 'notification', 'alerts'
+    ];
     $local = explode('@', $email)[0];
     if (in_array(strtolower($local), $role_accounts, true)) {
         return ['valid' => false, 'message' => 'Role account emails are not allowed.'];
@@ -68,7 +99,7 @@ function is_valid_email(string $email): array {
     
     // Check for disposable domains
     if (is_disposable_email($email)) {
-        return ['valid' => false, 'message' => 'Disposable email addresses are not allowed.'];
+        return ['valid' => false, 'message' => 'Temporary/disposable email addresses are not allowed.'];
     }
     
     return ['valid' => true, 'message' => 'Valid email.'];
