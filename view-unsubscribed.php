@@ -11,8 +11,17 @@ if (file_exists($file)) {
     if ($content) {
         $lines = array_filter(array_map('trim', explode("\n", $content)));
         foreach ($lines as $line) {
-            // Parse: "email@example.com - 2025-02-18 10:30:45 - IP: 192.168.1.1"
-            if (preg_match('/^(.+?)\s*-\s*(.+?)\s*-\s*IP:\s*(.+)$/', $line, $matches)) {
+            // Parse new format: "email@example.com | 2025-02-19 18:33:36 | IP: 122.161.240.152 | UA: Mozilla/5.0..."
+            if (preg_match('/^(.+?)\s*\|\s*(.+?)\s*\|\s*IP:\s*(.+?)\s*\|\s*UA:\s*(.+)$/', $line, $matches)) {
+                $rows[] = [
+                    'email' => trim($matches[1]),
+                    'timestamp' => trim($matches[2]),
+                    'ip' => trim($matches[3]),
+                    'source' => 'web',
+                    'user_agent' => trim($matches[4])
+                ];
+            } else if (preg_match('/^(.+?)\s*-\s*(.+?)\s*-\s*IP:\s*(.+)$/', $line, $matches)) {
+                // Fallback: old format
                 $rows[] = [
                     'email' => trim($matches[1]),
                     'timestamp' => trim($matches[2]),
@@ -20,17 +29,15 @@ if (file_exists($file)) {
                     'source' => 'web',
                     'user_agent' => 'N/A'
                 ];
-            } else {
-                // Fallback: just email if format doesn't match
-                if (filter_var($line, FILTER_VALIDATE_EMAIL)) {
-                    $rows[] = [
-                        'email' => $line,
-                        'timestamp' => date('Y-m-d H:i:s'),
-                        'ip' => 'N/A',
-                        'source' => 'web',
-                        'user_agent' => 'N/A'
-                    ];
-                }
+            } else if (filter_var(trim(explode('|', $line)[0]), FILTER_VALIDATE_EMAIL)) {
+                // Just email
+                $rows[] = [
+                    'email' => trim(explode('|', $line)[0]),
+                    'timestamp' => date('Y-m-d H:i:s'),
+                    'ip' => 'N/A',
+                    'source' => 'web',
+                    'user_agent' => 'N/A'
+                ];
             }
         }
     }
@@ -112,6 +119,7 @@ table {
     width: 100%;
     border-collapse: collapse;
     margin-top: 10px;
+    overflow-x: auto;
 }
 
 thead {
@@ -139,24 +147,28 @@ tbody tr:hover {
 .email {
     color: #2563eb;
     font-weight: 500;
+    word-break: break-all;
 }
 
 .ip {
     color: #666;
     font-family: monospace;
+    font-size: 12px;
 }
 
 .timestamp {
     color: #999;
     white-space: nowrap;
+    font-size: 12px;
 }
 
 .user-agent {
-    max-width: 300px;
+    color: #666;
+    font-size: 12px;
+    max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: #666;
 }
 
 .btn {
@@ -193,6 +205,17 @@ tbody tr:hover {
     padding: 40px;
     color: #999;
 }
+
+@media (max-width: 768px) {
+    .user-agent {
+        max-width: 100px;
+    }
+    
+    th, td {
+        padding: 8px;
+        font-size: 12px;
+    }
+}
 </style>
 </head>
 <body>
@@ -217,11 +240,11 @@ tbody tr:hover {
         <table>
             <thead>
                 <tr>
-                    <th style="width: 30%;">Email</th>
-                    <th style="width: 15%;">Source</th>
+                    <th style="width: 25%;">Email</th>
+                    <th style="width: 12%;">Source</th>
                     <th style="width: 15%;">IP</th>
-                    <th style="width: 25%;">User Agent</th>
-                    <th style="width: 15%;">Date</th>
+                    <th style="width: 28%;">User Agent</th>
+                    <th style="width: 20%;">Date</th>
                 </tr>
             </thead>
             <tbody>
@@ -230,7 +253,7 @@ tbody tr:hover {
                     <td class="email"><?= htmlspecialchars($row['email']) ?></td>
                     <td><?= htmlspecialchars($row['source']) ?></td>
                     <td class="ip"><?= htmlspecialchars($row['ip']) ?></td>
-                    <td class="user-agent"><?= htmlspecialchars($row['user_agent']) ?></td>
+                    <td class="user-agent" title="<?= htmlspecialchars($row['user_agent']) ?>"><?= htmlspecialchars($row['user_agent']) ?></td>
                     <td class="timestamp"><?= htmlspecialchars($row['timestamp']) ?></td>
                 </tr>
                 <?php endforeach; ?>
