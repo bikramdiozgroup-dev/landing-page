@@ -125,13 +125,13 @@
         width: 100%;
     }
 
-    button:hover {
+    button:hover:not(:disabled) {
         background-color: #e65c00;
         transform: translateY(-2px);
         box-shadow: 0 6px 20px rgba(255, 102, 0, 0.4);
     }
 
-    button:active {
+    button:active:not(:disabled) {
         transform: translateY(0);
     }
 
@@ -140,29 +140,73 @@
         cursor: not-allowed;
     }
 
+    .message {
+        padding: 12px;
+        border-radius: 6px;
+        margin-bottom: 15px;
+        font-size: 13px;
+        display: none;
+    }
+
+    .message.show {
+        display: block;
+    }
+
     .error-message {
         background-color: rgba(255, 100, 100, 0.2);
         border: 1px solid rgba(255, 100, 100, 0.5);
         color: #ffcccc;
-        padding: 10px 12px;
+    }
+
+    .success-message {
+        background-color: rgba(100, 255, 100, 0.2);
+        border: 1px solid rgba(100, 255, 100, 0.5);
+        color: #ccffcc;
+    }
+
+    .info-message {
+        background-color: rgba(100, 200, 255, 0.2);
+        border: 1px solid rgba(100, 200, 255, 0.5);
+        color: #ccecff;
+    }
+
+    .validation-checks {
+        display: none;
+        background-color: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
         border-radius: 6px;
-        margin-bottom: 15px;
-        display: none;
-        font-size: 13px;
+        padding: 12px;
+        margin-top: 15px;
+        text-align: left;
+        font-size: 12px;
     }
 
-    .error-message.show {
+    .validation-checks.show {
         display: block;
     }
 
-    .loading {
-        display: none;
+    .check-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
         color: #f0f0f0;
-        font-size: 13px;
     }
 
-    .loading.show {
-        display: block;
+    .check-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .check-icon {
+        margin-right: 8px;
+        font-weight: bold;
+    }
+
+    .check-icon.passed {
+        color: #90EE90;
+    }
+
+    .check-icon.failed {
+        color: #FF6B6B;
     }
 </style>
 </head>
@@ -179,10 +223,11 @@
     <h2>Unsubscribe from Our Emails</h2>
     <p>Enter your email below to unsubscribe from our mailing list:</p>
     
-    <div class="error-message" id="errorMessage"></div>
-    <div class="loading" id="loadingMessage">Validating email...</div>
+    <div class="message error-message" id="errorMessage"></div>
+    <div class="message success-message" id="successMessage"></div>
+    <div class="message info-message" id="infoMessage">Validating email...</div>
     
-    <form id="unsubscribeForm" action="unsubscribe-handler.php" method="POST">
+    <form id="unsubscribeForm">
         <input 
             type="email" 
             id="emailInput"
@@ -193,6 +238,8 @@
         <br>
         <button type="submit" id="submitBtn">Unsubscribe</button>
     </form>
+
+    <div class="validation-checks" id="validationChecks"></div>
 </div>
 
 <script>
@@ -201,13 +248,17 @@ document.getElementById('unsubscribeForm').addEventListener('submit', async func
     
     const email = document.getElementById('emailInput').value.trim();
     const errorEl = document.getElementById('errorMessage');
-    const loadingEl = document.getElementById('loadingMessage');
+    const successEl = document.getElementById('successMessage');
+    const infoEl = document.getElementById('infoMessage');
+    const checksEl = document.getElementById('validationChecks');
     const submitBtn = document.getElementById('submitBtn');
     
     // Reset messages
     errorEl.classList.remove('show');
+    successEl.classList.remove('show');
+    infoEl.classList.add('show');
+    checksEl.classList.remove('show');
     errorEl.textContent = '';
-    loadingEl.classList.add('show');
     submitBtn.disabled = true;
     
     try {
@@ -220,27 +271,48 @@ document.getElementById('unsubscribeForm').addEventListener('submit', async func
         });
         
         if (response.redirected) {
-            // Successful redirect
+            infoEl.classList.remove('show');
             window.location.href = response.url;
             return;
         }
         
         const data = await response.json();
+        infoEl.classList.remove('show');
         
         if (!data.success) {
-            errorEl.textContent = '❌ ' + (data.message || 'Validation failed. Please check your email.');
+            errorEl.textContent = '❌ ' + (data.message || 'Validation failed.');
             errorEl.classList.add('show');
-            loadingEl.classList.remove('show');
+            
+            // Show validation checks
+            if (data.checks && Array.isArray(data.checks)) {
+                let checksHTML = '<div style="color: #f0f0f0; font-weight: bold; margin-bottom: 8px;">Validation Results:</div>';
+                data.checks.forEach(check => {
+                    const icon = check.valid ? '✓' : '✗';
+                    const iconClass = check.valid ? 'passed' : 'failed';
+                    checksHTML += `
+                        <div class="check-item">
+                            <span class="check-icon ${iconClass}">${icon}</span>
+                            <span><strong>${check.check}:</strong> ${check.message}</span>
+                        </div>
+                    `;
+                });
+                checksEl.innerHTML = checksHTML;
+                checksEl.classList.add('show');
+            }
+            
             submitBtn.disabled = false;
         } else {
-            // Success - let the form redirect
-            window.location.href = '/unsubscribe-success.html';
+            successEl.textContent = '✓ Email validated successfully. Redirecting...';
+            successEl.classList.add('show');
+            setTimeout(() => {
+                window.location.href = '/unsubscribe-success.html';
+            }, 1500);
         }
     } catch (err) {
         console.error('Error:', err);
+        infoEl.classList.remove('show');
         errorEl.textContent = '❌ Network error. Please try again.';
         errorEl.classList.add('show');
-        loadingEl.classList.remove('show');
         submitBtn.disabled = false;
     }
 });
