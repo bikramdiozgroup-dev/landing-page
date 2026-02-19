@@ -48,12 +48,12 @@
         background-color: rgba(255, 255, 255, 0.15);
         padding: 40px 45px;
         border-radius: 16px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
         text-align: center;
         max-width: 420px;
         width: 90%;
         backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.25);
         animation: slideUp 0.6s ease-out;
     }
 
@@ -92,20 +92,23 @@
         padding: 12px 15px;
         width: 100%;
         margin-bottom: 15px;
-        border: 1px solid 
-      rgba(255, 255, 255, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.3);
         border-radius: 8px;
         font-size: 14px;
-        background-color:rgba(255, 255, 255, 0.15);
+        background-color: rgba(255, 255, 255, 0.15);
         color: #ffffff;
         transition: all 0.3s;
-   
+    }
+
+    input[type="email"]::placeholder {
+        color: rgba(255, 255, 255, 0.7);
     }
 
     input[type="email"]:focus {
         outline: none;
         border-color: #ff6600;
-        box-shadow: 0 0 0 3px rgba(255, 102, 0, 0.1);
+        box-shadow: 0 0 0 3px rgba(255, 102, 0, 0.2);
+        background-color: rgba(255, 255, 255, 0.25);
     }
 
     button {
@@ -119,6 +122,7 @@
         cursor: pointer;
         transition: all 0.3s ease;
         box-shadow: 0 4px 15px rgba(255, 102, 0, 0.3);
+        width: 100%;
     }
 
     button:hover {
@@ -129,6 +133,36 @@
 
     button:active {
         transform: translateY(0);
+    }
+
+    button:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+
+    .error-message {
+        background-color: rgba(255, 100, 100, 0.2);
+        border: 1px solid rgba(255, 100, 100, 0.5);
+        color: #ffcccc;
+        padding: 10px 12px;
+        border-radius: 6px;
+        margin-bottom: 15px;
+        display: none;
+        font-size: 13px;
+    }
+
+    .error-message.show {
+        display: block;
+    }
+
+    .loading {
+        display: none;
+        color: #f0f0f0;
+        font-size: 13px;
+    }
+
+    .loading.show {
+        display: block;
     }
 </style>
 </head>
@@ -144,13 +178,73 @@
     <img src="https://dioz.com/wp-content/uploads/2024/07/logo.svg" alt="Dioz Logo">
     <h2>Unsubscribe from Our Emails</h2>
     <p>Enter your email below to unsubscribe from our mailing list:</p>
-    <form action="unsubscribe-handler.php" method="POST">
-        <input type="email" name="email" placeholder="Your email address" required>
+    
+    <div class="error-message" id="errorMessage"></div>
+    <div class="loading" id="loadingMessage">Validating email...</div>
+    
+    <form id="unsubscribeForm" action="unsubscribe-handler.php" method="POST">
+        <input 
+            type="email" 
+            id="emailInput"
+            name="email" 
+            placeholder="Your email address" 
+            required
+        >
         <br>
-        <button type="submit">Unsubscribe</button>
+        <button type="submit" id="submitBtn">Unsubscribe</button>
     </form>
 </div>
 
+<script>
+document.getElementById('unsubscribeForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const email = document.getElementById('emailInput').value.trim();
+    const errorEl = document.getElementById('errorMessage');
+    const loadingEl = document.getElementById('loadingMessage');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    // Reset messages
+    errorEl.classList.remove('show');
+    errorEl.textContent = '';
+    loadingEl.classList.add('show');
+    submitBtn.disabled = true;
+    
+    try {
+        const response = await fetch('unsubscribe-handler.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'email=' + encodeURIComponent(email)
+        });
+        
+        if (response.redirected) {
+            // Successful redirect
+            window.location.href = response.url;
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            errorEl.textContent = '❌ ' + (data.message || 'Validation failed. Please check your email.');
+            errorEl.classList.add('show');
+            loadingEl.classList.remove('show');
+            submitBtn.disabled = false;
+        } else {
+            // Success - let the form redirect
+            window.location.href = '/unsubscribe-success.html';
+        }
+    } catch (err) {
+        console.error('Error:', err);
+        errorEl.textContent = '❌ Network error. Please try again.';
+        errorEl.classList.add('show');
+        loadingEl.classList.remove('show');
+        submitBtn.disabled = false;
+    }
+});
+</script>
+
 </body>
 </html>
-
